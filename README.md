@@ -1,35 +1,58 @@
 # BrainPort
 
-Демо-платформа обмена учебными материалами между преподавателями и студентами. Реализована на **HTML, CSS, JavaScript** без сервера; вместо БД используется **localStorage** (заглушка).
+Платформа обмена учебными материалами между преподавателями и студентами. Frontend на **HTML, CSS, JavaScript**; данные и авторизация — **Supabase**.
 
-## Запуск
+## Первый запуск (обязательно)
 
-Откройте в браузере файл `index.html` (двойной клик или Live Server в VS Code).
+1. Откройте [Supabase Dashboard](https://supabase.com/dashboard) → ваш проект.
+2. **SQL Editor** → вставьте и выполните содержимое файла `supabase/schema.sql`.
+3. **Storage** → создайте bucket `materials` (private).
+4. В **Storage → Policies** разрешите authenticated пользователям `insert` и `select` для bucket `materials`.
+5. **Authentication → Providers** → включите Email.
 
-## Демо-аккаунты
+## Регистрация и вход
 
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Преподаватель | `teacher@brainport.edu` | `teacher123` |
-| Студент | `student@brainport.edu` | `student123` |
+- Откройте `index.html` в браузере (или через Live Server).
+- Вкладка **Регистрация** — создайте аккаунт (преподаватель или студент).
+- Вкладка **Вход** — email или логин (без `@` подставится домен `brainport.edu`).
+
+Пример: логин `brainport` → `brainport@brainport.edu`.
+
+## Запуск локально
+
+Двойной клик по `index.html` или:
+
+```bash
+npx serve .
+```
+
+Для загрузки файлов в Storage лучше открывать через `http://localhost`, а не `file://`.
 
 ## Возможности
 
-- Вход по ролям (преподаватель / студент)
-- Каталог материалов с поиском и фильтром по предмету
-- Загрузка материалов (преподаватель) — публикация в localStorage
-- Скачивание (демо-текстовый файл)
-- Уведомления для студентов о новых материалах
-- Профиль и сброс демо-данных
+- Регистрация и вход через Supabase Auth
+- Каталог материалов с поиском и фильтром
+- Загрузка файлов (преподаватель) в Supabase Storage
+- Уведомления студентам о новых материалах
+- Адаптивный интерфейс для ПК и телефона
 
 ## Структура
 
 ```
-BrainPort/
-├── index.html      — страница входа
-├── app.html        — основное приложение
+Папка/
+├── index.html          — вход и регистрация
+├── app.html            — приложение
 ├── css/main.css
-├── js/storage.js   — заглушка БД (localStorage)
-├── js/app.js       — логика интерфейса
-└── README.md
+├── js/config.js        — URL и ключ Supabase
+├── js/api.js           — работа с БД
+├── js/storage.js       — сессия в браузере
+├── js/app.js           — интерфейс
+└── supabase/schema.sql — схема БД
 ```
+
+## Конфигурация
+
+Параметры в `js/config.js`:
+
+- `SUPABASE_URL`
+- `SUPABASE_KEY` (publishable key)

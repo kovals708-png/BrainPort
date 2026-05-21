@@ -1,4 +1,4 @@
-const session = getSession();
+let session = getSession();
 if (!session) {
   window.location.href = 'index.html';
 }
@@ -9,6 +9,9 @@ const TYPE_LABELS = { pdf: 'PDF', ppt: 'PPT', doc: 'DOC' };
 let currentView = 'dashboard';
 let searchQuery = '';
 let filterSubject = '';
+let materialsCache = [];
+let notificationsCache = [];
+let isLoading = false;
 
 const pageTitles = {
   dashboard: 'Главная',
@@ -19,13 +22,46 @@ const pageTitles = {
   profile: 'Профиль'
 };
 
+function initMobileMenu() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const menuBtn = document.getElementById('mobileMenuBtn');
+
+  function closeSidebar() {
+    sidebar?.classList.remove('open');
+    overlay?.classList.add('hidden');
+    document.body.classList.remove('sidebar-open');
+  }
+
+  function openSidebar() {
+    sidebar?.classList.add('open');
+    overlay?.classList.remove('hidden');
+    document.body.classList.add('sidebar-open');
+  }
+
+  menuBtn?.addEventListener('click', () => {
+    if (sidebar?.classList.contains('open')) closeSidebar();
+    else openSidebar();
+  });
+
+  overlay?.addEventListener('click', closeSidebar);
+
+  document.getElementById('sidebarNav')?.addEventListener('click', (e) => {
+    if (e.target.closest('.nav-link') && window.innerWidth < 900) closeSidebar();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 900) closeSidebar();
+  });
+}
+
 function initSidebar() {
   document.getElementById('userAvatar').textContent = session.avatar || '??';
   document.getElementById('userName').textContent = session.name;
   document.getElementById('userRole').textContent = ROLE_LABELS[session.role] || session.role;
   document.getElementById('sidebarRoleLabel').textContent = ROLE_LABELS[session.role];
 
-  const unread = getUnreadCount();
+  const unread = notificationsCache.filter((n) => !n.read).length;
   const navItems =
     session.role === 'teacher'
       ? [
@@ -62,20 +98,15 @@ function initSidebar() {
       currentView = btn.dataset.view;
       searchQuery = '';
       filterSubject = '';
-      document.getElementById('globalSearch').value = '';
+      const searchInput = document.getElementById('globalSearch');
+      if (searchInput) searchInput.value = '';
       render();
     });
   });
 }
 
-function getUnreadCount() {
-  const db = loadDb();
-  return db.notifications.filter((n) => n.userId === session.id && !n.read).length;
-}
-
 function getMaterials() {
-  const db = loadDb();
-  let list = [...db.materials];
+  let list = [...materialsCache];
   if (session.role === 'teacher' && currentView === 'mymaterials') {
     list = list.filter((m) => m.authorId === session.id);
   }
@@ -85,18 +116,17 @@ function getMaterials() {
       (m) =>
         m.title.toLowerCase().includes(q) ||
         m.subject.toLowerCase().includes(q) ||
-        m.description.toLowerCase().includes(q)
+        (m.description || '').toLowerCase().includes(q)
     );
   }
   if (filterSubject) {
     list = list.filter((m) => m.subject === filterSubject);
   }
-  return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return list;
 }
 
 function getSubjects() {
-  const db = loadDb();
-  return [...new Set(db.materials.map((m) => m.subject))].sort();
+  return [...new Set(materialsCache.map((m) => m.subject))].sort();
 }
 
 function showToast(message) {
@@ -109,14 +139,23 @@ function showToast(message) {
   setTimeout(() => el.remove(), 2800);
 }
 
+function showContentError(message) {
+  document.getElementById('appContent').innerHTML = `
+    <div class="empty-state">
+      <div class="icon">⚠️</div>
+      <p>${escapeHtml(message)}</p>
+      <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">
+        Откройте Supabase → SQL Editor и выполните <code>supabase/schema.sql</code>
+      </p>
+    </div>`;
+}
+
 function renderDashboard() {
-  const db = loadDb();
-  const materials = db.materials;
+  const materials = materialsCache;
   const myMaterials =
-    session.role === 'teacher'
-      ? materials.filter((m) => m.authorId === session.id)
-      : materials;
-  const totalDownloads = materials.reduce((s, m) => s + m.downloads, 0);
+    session.role === 'teacher' ? materials.filter((m) => m.authorId === session.id) : materials;
+  const totalDownloads = materials.reduce((s, m) => s + (m.downloads || 0), 0);
+  const unread = notificationsCache.filter((n) => !n.read).length;
 
   const stats =
     session.role === 'teacher'
@@ -129,7 +168,7 @@ function renderDashboard() {
       : [
           { label: 'Доступно материалов', value: materials.length },
           { label: 'Предметов', value: getSubjects().length, accent: true },
-          { label: 'Новых уведомлений', value: getUnreadCount() },
+          { label: 'Новых уведомлений', value: unread },
           { label: 'Всего скачиваний', value: totalDownloads }
         ];
 
@@ -150,24 +189,30 @@ function renderDashboard() {
         .join('')}
     </div>
     <h3 style="margin-bottom:0.75rem">Последние материалы</h3>
-    <table class="recent-table">
-      <thead>
-        <tr><th>Название</th><th>Предмет</th><th>Автор</th><th>Дата</th></tr>
-      </thead>
-      <tbody>
-        ${recent
-          .map(
-            (m) => `
-          <tr>
-            <td>${escapeHtml(m.title)}</td>
-            <td>${escapeHtml(m.subject)}</td>
-            <td>${escapeHtml(m.authorName)}</td>
-            <td>${m.createdAt}</td>
-          </tr>`
-          )
-          .join('')}
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="recent-table">
+        <thead>
+          <tr><th>Название</th><th>Предмет</th><th>Автор</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+          ${
+            recent.length
+              ? recent
+                  .map(
+                    (m) => `
+            <tr>
+              <td>${escapeHtml(m.title)}</td>
+              <td>${escapeHtml(m.subject)}</td>
+              <td>${escapeHtml(m.authorName)}</td>
+              <td>${m.createdAt}</td>
+            </tr>`
+                  )
+                  .join('')
+              : '<tr><td colspan="4">Пока нет материалов</td></tr>'
+          }
+        </tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -183,7 +228,7 @@ function renderMaterialCard(m, options = {}) {
         <span>👤 ${escapeHtml(m.authorName)}</span>
         <span>📅 ${m.createdAt}</span>
         <span>⬇ ${m.downloads}</span>
-        <span>📦 ${m.size}</span>
+        <span>📦 ${m.size || '—'}</span>
       </div>
       <div class="material-actions">
         <button type="button" class="btn btn-primary btn-sm btn-download" data-id="${m.id}">Скачать</button>
@@ -246,20 +291,17 @@ function renderUpload() {
           <textarea id="matDesc" rows="3" placeholder="Краткое описание содержания"></textarea>
         </div>
         <div class="form-group">
-          <label for="matFile">Файл (демо — имя файла)</label>
+          <label for="matFile">Файл</label>
           <input type="file" id="matFile" accept=".pdf,.ppt,.pptx,.doc,.docx">
         </div>
-        <button type="submit" class="btn btn-primary">Опубликовать</button>
+        <button type="submit" class="btn btn-primary" id="uploadSubmitBtn">Опубликовать</button>
       </form>
     </div>
   `;
 }
 
 function renderNotifications() {
-  const db = loadDb();
-  const list = db.notifications
-    .filter((n) => n.userId === session.id)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const list = [...notificationsCache].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!list.length) {
     return `<div class="empty-state"><div class="icon">🔔</div><p>Уведомлений пока нет</p></div>`;
@@ -296,58 +338,22 @@ function renderProfile() {
         <dt>Email</dt><dd>${escapeHtml(session.email)}</dd>
         <dt>Роль</dt><dd>${ROLE_LABELS[session.role]}</dd>
         ${extra}
-        <dt>Режим</dt><dd>Демо (localStorage, без сервера)</dd>
+        <dt>Хранилище</dt><dd>Supabase (облако)</dd>
       </dl>
-    </div>
-    <div style="margin-top:2rem">
-      <button type="button" class="btn btn-secondary" id="resetDataBtn">Сбросить демо-данные</button>
     </div>
   `;
 }
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str ?? '';
   return div.innerHTML;
 }
 
-function render() {
-  initSidebar();
-  document.getElementById('pageTitle').textContent = pageTitles[currentView] || 'BrainPort';
-
-  const showSearch = currentView === 'materials' || currentView === 'mymaterials';
-  document.getElementById('globalSearchWrap').classList.toggle('hidden', !showSearch);
-
-  const content = document.getElementById('appContent');
-  switch (currentView) {
-    case 'dashboard':
-      content.innerHTML = renderDashboard();
-      break;
-    case 'materials':
-    case 'mymaterials':
-      content.innerHTML = renderMaterials();
-      bindMaterialsEvents();
-      break;
-    case 'upload':
-      content.innerHTML = renderUpload();
-      bindUploadForm();
-      break;
-    case 'notifications':
-      content.innerHTML = renderNotifications();
-      bindNotifications();
-      break;
-    case 'profile':
-      content.innerHTML = renderProfile();
-      document.getElementById('resetDataBtn')?.addEventListener('click', () => {
-        if (confirm('Сбросить все демо-данные к начальному состоянию?')) {
-          resetDb();
-          showToast('Данные сброшены');
-          render();
-        }
-      });
-      break;
-    default:
-      content.innerHTML = renderDashboard();
+async function refreshData() {
+  materialsCache = await fetchMaterials();
+  if (session.role === 'student') {
+    notificationsCache = await fetchNotifications(session.id);
   }
 }
 
@@ -370,105 +376,174 @@ function bindMaterialsEvents() {
   });
 }
 
-function downloadMaterial(id) {
-  const db = loadDb();
-  const mat = db.materials.find((m) => m.id === id);
+async function downloadMaterial(id) {
+  const mat = materialsCache.find((m) => m.id === id);
   if (!mat) return;
 
-  mat.downloads += 1;
-  saveDb(db);
+  try {
+    await incrementDownload(id);
+    mat.downloads = (mat.downloads || 0) + 1;
 
-  const blob = new Blob(
-    [
-      `BrainPort — демо-файл\n\nНазвание: ${mat.title}\nПредмет: ${mat.subject}\nТип: ${mat.type}\nАвтор: ${mat.authorName}\n\nЭто заглушка. В реальном приложении здесь был бы файл с сервера.`
-    ],
-    { type: 'text/plain;charset=utf-8' }
-  );
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${mat.title.replace(/[^\wа-яА-ЯёЁ\s-]/gi, '')}.${mat.type}`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+    if (mat.filePath) {
+      const url = await getMaterialFileUrl(mat.filePath);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = mat.fileName || `${mat.title}.${mat.type}`;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.click();
+    } else {
+      const blob = new Blob(
+        [`BrainPort\n\n${mat.title}\n${mat.subject}\n\nФайл не был прикреплён при публикации.`],
+        { type: 'text/plain;charset=utf-8' }
+      );
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${mat.title.replace(/[^\wа-яА-ЯёЁ\s-]/gi, '')}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-  showToast(`«${mat.title}» — скачивание (демо)`);
-  if (currentView === 'materials' || currentView === 'mymaterials') {
-    document.getElementById('appContent').innerHTML = renderMaterials();
-    bindMaterialsEvents();
+    showToast(`«${mat.title}» — скачивание`);
+    if (currentView === 'materials' || currentView === 'mymaterials') {
+      document.getElementById('appContent').innerHTML = renderMaterials();
+      bindMaterialsEvents();
+    }
+  } catch (err) {
+    showToast(formatApiError(err));
   }
 }
 
-function deleteMaterial(id) {
+async function deleteMaterial(id) {
   if (!confirm('Удалить этот материал?')) return;
-  const db = loadDb();
-  db.materials = db.materials.filter((m) => m.id !== id);
-  saveDb(db);
-  showToast('Материал удалён');
-  render();
+  try {
+    await deleteMaterialById(id);
+    materialsCache = materialsCache.filter((m) => m.id !== id);
+    showToast('Материал удалён');
+    render();
+  } catch (err) {
+    showToast(formatApiError(err));
+  }
 }
 
 function bindUploadForm() {
-  document.getElementById('uploadForm')?.addEventListener('submit', (e) => {
+  document.getElementById('uploadForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const title = document.getElementById('matTitle').value.trim();
-    const subject = document.getElementById('matSubject').value.trim();
-    const type = document.getElementById('matType').value;
-    const description = document.getElementById('matDesc').value.trim() || 'Без описания';
-    const fileInput = document.getElementById('matFile');
-    let size = '1.0 МБ';
-    if (fileInput.files[0]) {
-      const bytes = fileInput.files[0].size;
-      size =
-        bytes > 1024 * 1024
-          ? `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
-          : `${Math.round(bytes / 1024)} КБ`;
+    const btn = document.getElementById('uploadSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Публикация...';
+
+    try {
+      const title = document.getElementById('matTitle').value.trim();
+      const subject = document.getElementById('matSubject').value.trim();
+      const type = document.getElementById('matType').value;
+      const description = document.getElementById('matDesc').value.trim() || 'Без описания';
+      const fileInput = document.getElementById('matFile');
+      const file = fileInput.files[0] || null;
+      let size = '';
+      if (file) {
+        const bytes = file.size;
+        size =
+          bytes > 1024 * 1024
+            ? `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+            : `${Math.round(bytes / 1024)} КБ`;
+      }
+
+      const created = await insertMaterial(
+        {
+          title,
+          subject,
+          type,
+          description,
+          authorId: session.id,
+          authorName: session.name,
+          createdAt: new Date().toISOString().slice(0, 10),
+          size
+        },
+        file
+      );
+
+      materialsCache.unshift(created);
+      await notifyStudentsAboutMaterial(title, subject);
+      showToast('Материал опубликован');
+      currentView = 'mymaterials';
+      await render();
+    } catch (err) {
+      showToast(formatApiError(err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Опубликовать';
     }
-
-    const db = loadDb();
-    const newMat = {
-      id: uid('m'),
-      title,
-      subject,
-      type,
-      description,
-      authorId: session.id,
-      authorName: session.name,
-      createdAt: new Date().toISOString().slice(0, 10),
-      downloads: 0,
-      size
-    };
-    db.materials.push(newMat);
-
-    db.users
-      .filter((u) => u.role === 'student')
-      .forEach((u) => {
-        db.notifications.unshift({
-          id: uid('n'),
-          userId: u.id,
-          text: `Добавлен новый материал: «${title}» (${subject})`,
-          read: false,
-          date: newMat.createdAt
-        });
-      });
-
-    saveDb(db);
-    showToast('Материал опубликован');
-    currentView = 'mymaterials';
-    render();
   });
 }
 
 function bindNotifications() {
   document.querySelectorAll('.notif-item').forEach((el) => {
-    el.addEventListener('click', () => {
-      const db = loadDb();
-      const n = db.notifications.find((x) => x.id === el.dataset.id);
+    el.addEventListener('click', async () => {
+      const n = notificationsCache.find((x) => x.id === el.dataset.id);
       if (n && !n.read) {
-        n.read = true;
-        saveDb(db);
-        render();
+        try {
+          await markNotificationRead(n.id);
+          n.read = true;
+          render();
+        } catch (err) {
+          showToast(formatApiError(err));
+        }
       }
     });
   });
+}
+
+function renderViewContent() {
+  const content = document.getElementById('appContent');
+  switch (currentView) {
+    case 'dashboard':
+      content.innerHTML = renderDashboard();
+      break;
+    case 'materials':
+    case 'mymaterials':
+      content.innerHTML = renderMaterials();
+      bindMaterialsEvents();
+      break;
+    case 'upload':
+      content.innerHTML = renderUpload();
+      bindUploadForm();
+      break;
+    case 'notifications':
+      content.innerHTML = renderNotifications();
+      bindNotifications();
+      break;
+    case 'profile':
+      content.innerHTML = renderProfile();
+      break;
+    default:
+      content.innerHTML = renderDashboard();
+  }
+}
+
+async function render() {
+  if (isLoading) return;
+  isLoading = true;
+
+  const content = document.getElementById('appContent');
+  if (!content.innerHTML || content.querySelector('.loading-state')) {
+    content.innerHTML = '<div class="loading-state">Загрузка...</div>';
+  }
+
+  try {
+    await refreshData();
+    initSidebar();
+    document.getElementById('pageTitle').textContent = pageTitles[currentView] || 'BrainPort';
+
+    const showSearch = currentView === 'materials' || currentView === 'mymaterials';
+    document.getElementById('globalSearchWrap').classList.toggle('hidden', !showSearch);
+
+    renderViewContent();
+  } catch (err) {
+    showContentError(formatApiError(err));
+  } finally {
+    isLoading = false;
+  }
 }
 
 document.getElementById('globalSearch')?.addEventListener('input', (e) => {
@@ -479,9 +554,28 @@ document.getElementById('globalSearch')?.addEventListener('input', (e) => {
   }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try {
+    await signOut();
+  } catch (_) {}
   clearSession();
   window.location.href = 'index.html';
 });
 
-render();
+(async function bootstrap() {
+  initMobileMenu();
+
+  try {
+    const live = await getCurrentSession();
+    if (live) {
+      session = live;
+      setSession(session);
+    }
+  } catch (_) {
+    clearSession();
+    window.location.href = 'index.html';
+    return;
+  }
+
+  await render();
+})();

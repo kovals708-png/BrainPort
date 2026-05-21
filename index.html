@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1419">
   <title>BrainPort — Вход</title>
   <link rel="stylesheet" href="css/main.css">
 </head>
@@ -22,64 +23,188 @@
         <li>Загрузка и каталог материалов по предметам</li>
         <li>Разделение ролей преподаватель / студент</li>
         <li>Уведомления о новых публикациях</li>
-        <li>Данные хранятся локально (демо-режим без сервера)</li>
+        <li>Данные в облачной базе Supabase</li>
       </ul>
     </section>
 
     <section class="login-form-wrap">
       <div class="login-card">
-        <h3>Вход в систему</h3>
-        <p class="subtitle">Введите учётные данные вашей учётной записи</p>
-        <div id="loginAlert" class="alert alert-error hidden"></div>
-        <form id="loginForm">
-          <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="teacher@brainport.edu" required autocomplete="username">
-          </div>
-          <div class="form-group">
-            <label for="password">Пароль</label>
-            <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
-          </div>
-          <button type="submit" class="btn btn-primary">Войти</button>
-        </form>
-        <div class="demo-hint">
-          <strong>Демо-аккаунты:</strong><br>
-          Преподаватель: <code>teacher@brainport.edu</code> / <code>teacher123</code><br>
-          Студент: <code>student@brainport.edu</code> / <code>student123</code>
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" data-tab="login">Вход</button>
+          <button type="button" class="auth-tab" data-tab="register">Регистрация</button>
+        </div>
+
+        <div id="loginPanel">
+          <h3>Вход в систему</h3>
+          <p class="subtitle">Email или логин и пароль</p>
+          <div id="loginAlert" class="alert alert-error hidden"></div>
+          <form id="loginForm">
+            <div class="form-group">
+              <label for="loginEmail">Email или логин</label>
+              <input type="text" id="loginEmail" name="login" placeholder="brainport" required autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label for="loginPassword">Пароль</label>
+              <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Войти</button>
+          </form>
+        </div>
+
+        <div id="registerPanel" class="hidden">
+          <h3>Регистрация</h3>
+          <p class="subtitle">Создайте учётную запись</p>
+          <div id="registerAlert" class="alert alert-error hidden"></div>
+          <div id="registerSuccess" class="alert alert-success hidden"></div>
+          <form id="registerForm">
+            <div class="form-group">
+              <label for="regName">ФИО</label>
+              <input type="text" id="regName" required maxlength="80" placeholder="Иванов И.И.">
+            </div>
+            <div class="form-group">
+              <label for="regEmail">Email</label>
+              <input type="email" id="regEmail" required placeholder="name@brainport.edu" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label for="regRole">Роль</label>
+              <select id="regRole" required>
+                <option value="student">Студент</option>
+                <option value="teacher">Преподаватель</option>
+              </select>
+            </div>
+            <div class="form-group" id="regDepartmentGroup">
+              <label for="regDepartment">Кафедра</label>
+              <input type="text" id="regDepartment" placeholder="Информатика">
+            </div>
+            <div class="form-group hidden" id="regGroupGroup">
+              <label for="regGroup">Группа</label>
+              <input type="text" id="regGroup" placeholder="ИТ-301">
+            </div>
+            <div class="form-group">
+              <label for="regPassword">Пароль</label>
+              <input type="password" id="regPassword" required minlength="8" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label for="regPassword2">Повтор пароля</label>
+              <input type="password" id="regPassword2" required minlength="8" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary" id="registerSubmitBtn">Зарегистрироваться</button>
+          </form>
         </div>
       </div>
     </section>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
   <script>
-    loadDb();
-    const session = getSession();
-    if (session) {
-      window.location.href = 'app.html';
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const alertEl = document.getElementById('loginAlert');
-      alertEl.classList.add('hidden');
-
-      const email = document.getElementById('email').value.trim().toLowerCase();
-      const password = document.getElementById('password').value;
-      const db = loadDb();
-      const user = db.users.find(
-        (u) => u.email.toLowerCase() === email && u.password === password
-      );
-
-      if (!user) {
-        alertEl.textContent = 'Неверный email или пароль. Используйте демо-аккаунты ниже.';
-        alertEl.classList.remove('hidden');
+    (async function initAuthPage() {
+      const session = getSession();
+      if (session) {
+        window.location.href = 'app.html';
         return;
       }
 
-      const { password: _, ...safeUser } = user;
-      setSession(safeUser);
-      window.location.href = 'app.html';
-    });
+      try {
+        const profile = await getCurrentSession();
+        if (profile) {
+          setSession(profile);
+          window.location.href = 'app.html';
+        }
+      } catch (_) {}
+
+      const loginPanel = document.getElementById('loginPanel');
+      const registerPanel = document.getElementById('registerPanel');
+      const regRole = document.getElementById('regRole');
+      const regDept = document.getElementById('regDepartmentGroup');
+      const regGroup = document.getElementById('regGroupGroup');
+
+      function syncRoleFields() {
+        const isTeacher = regRole.value === 'teacher';
+        regDept.classList.toggle('hidden', !isTeacher);
+        regGroup.classList.toggle('hidden', isTeacher);
+      }
+      regRole.addEventListener('change', syncRoleFields);
+      syncRoleFields();
+
+      document.querySelectorAll('.auth-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.auth-tab').forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          const isLogin = tab.dataset.tab === 'login';
+          loginPanel.classList.toggle('hidden', !isLogin);
+          registerPanel.classList.toggle('hidden', isLogin);
+        });
+      });
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('loginAlert');
+        const btn = document.getElementById('loginSubmitBtn');
+        alertEl.classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = 'Вход...';
+
+        try {
+          const profile = await signIn(
+            document.getElementById('loginEmail').value,
+            document.getElementById('loginPassword').value
+          );
+          setSession(profile);
+          window.location.href = 'app.html';
+        } catch (err) {
+          alertEl.textContent = formatApiError(err);
+          alertEl.classList.remove('hidden');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Войти';
+        }
+      });
+
+      document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('registerAlert');
+        const successEl = document.getElementById('registerSuccess');
+        const btn = document.getElementById('registerSubmitBtn');
+        alertEl.classList.add('hidden');
+        successEl.classList.add('hidden');
+
+        const password = document.getElementById('regPassword').value;
+        const password2 = document.getElementById('regPassword2').value;
+        if (password !== password2) {
+          alertEl.textContent = 'Пароли не совпадают.';
+          alertEl.classList.remove('hidden');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Регистрация...';
+
+        try {
+          const role = document.getElementById('regRole').value;
+          const profile = await signUp({
+            email: document.getElementById('regEmail').value,
+            password,
+            name: document.getElementById('regName').value,
+            role,
+            department: document.getElementById('regDepartment').value,
+            group: document.getElementById('regGroup').value
+          });
+          setSession(profile);
+          successEl.textContent = 'Аккаунт создан. Переход в приложение...';
+          successEl.classList.remove('hidden');
+          setTimeout(() => { window.location.href = 'app.html'; }, 600);
+        } catch (err) {
+          alertEl.textContent = formatApiError(err);
+          alertEl.classList.remove('hidden');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Зарегистрироваться';
+        }
+      });
+    })();
   </script>
 </body>
 </html>
