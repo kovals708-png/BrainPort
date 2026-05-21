@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrainPort — Вход</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="login-page">
+    <section class="login-hero">
+      <div class="brand">
+        <div class="brand-icon">🧠</div>
+        <div>
+          <h1>BrainPort</h1>
+          <span>Цифровая образовательная платформа</span>
+        </div>
+      </div>
+      <h2>Обмен учебными материалами — быстро и безопасно</h2>
+      <p>Преподаватели публикуют лекции и задания, студенты получают доступ к актуальным материалам в одном месте.</p>
+      <ul class="login-features">
+        <li>Загрузка и каталог материалов по предметам</li>
+        <li>Разделение ролей преподаватель / студент</li>
+        <li>Уведомления о новых публикациях</li>
+        <li>Данные хранятся локально (демо-режим без сервера)</li>
+      </ul>
+    </section>
+
+    <section class="login-form-wrap">
+      <div class="login-card">
+        <h3>Вход в систему</h3>
+        <p class="subtitle">Введите учётные данные вашей учётной записи</p>
+        <div id="loginAlert" class="alert alert-error hidden"></div>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="teacher@brainport.edu" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="password">Пароль</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary">Войти</button>
+        </form>
+        <div class="demo-hint">
+          <strong>Демо-аккаунты:</strong><br>
+          Преподаватель: <code>teacher@brainport.edu</code> / <code>teacher123</code><br>
+          Студент: <code>student@brainport.edu</code> / <code>student123</code>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="js/storage.js"></script>
+  <script>
+    loadDb();
+    const session = getSession();
+    if (session) {
+      window.location.href = 'app.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('loginAlert');
+      alertEl.classList.add('hidden');
+
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const db = loadDb();
+      const user = db.users.find(
+        (u) => u.email.toLowerCase() === email && u.password === password
+      );
+
+      if (!user) {
+        alertEl.textContent = 'Неверный email или пароль. Используйте демо-аккаунты ниже.';
+        alertEl.classList.remove('hidden');
+        return;
+      }
+
+      const { password: _, ...safeUser } = user;
+      setSession(safeUser);
+      window.location.href = 'app.html';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+/* =========================================
+   LARGE SCREENS
+========================================= */
+
+@media (max-width: 1400px) {
+
+  .materials-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+
+/* =========================================
+   LAPTOPS
+========================================= */
+
+@media (max-width: 1200px) {
+
+  .sidebar {
+    width: 240px;
+    padding: 20px;
+  }
+
+  .main {
+    margin-left: 240px;
+    padding: 30px;
+  }
+
+  .header-title h2 {
+    font-size: 36px;
+  }
+
+  .profile-info h2 {
+    font-size: 42px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+
+/* =========================================
+   TABLETS
+========================================= */
+
+@media (max-width: 992px) {
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    z-index: 999;
+    width: 300px;
+    height: 100vh;
+    transition: .4s;
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  .main {
+    margin-left: 0;
+    width: 100%;
+    padding: 25px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .search-box input {
+    width: 100%;
+  }
+
+  .materials-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profile-top {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-tags {
+    justify-content: center;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 700px;
+  }
+
+}
+
+
+/* =========================================
+   MOBILE MENU
+========================================= */
+
+.mobile-menu-btn {
+  display: none;
+}
+
+@media (max-width: 992px) {
+
+  .mobile-menu-btn {
+    display: flex;
+    width: 55px;
+    height: 55px;
+    border-radius: 18px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    font-size: 22px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+}
+
+
+/* =========================================
+   SMALL TABLETS
+========================================= */
+
+@media (max-width: 768px) {
+
+  .main {
+    padding: 20px;
+  }
+
+  .header-title h2 {
+    font-size: 32px;
+  }
+
+  .header-title p {
+    font-size: 15px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .materials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .material-card {
+    padding: 25px;
+  }
+
+  .material-card h3 {
+    font-size: 26px;
+  }
+
+  .upload-wrapper {
+    padding: 25px;
+  }
+
+  .upload-wrapper h2 {
+    font-size: 34px;
+  }
+
+  .upload-zone {
+    padding: 40px 20px;
+  }
+
+  .profile-wrapper {
+    padding: 25px;
+  }
+
+  .profile-avatar {
+    width: 140px;
+    height: 140px;
+  }
+
+  .profile-info h2 {
+    font-size: 36px;
+  }
+
+  .profile-info p {
+    font-size: 16px;
+  }
+
+  .profile-tags {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .stat-card h3 {
+    font-size: 36px;
+  }
+
+  th,
+  td {
+    padding: 18px;
+  }
+
+}
+
+
+/* =========================================
+   PHONES
+========================================= */
+
+@media (max-width: 576px) {
+
+  .main {
+    padding: 15px;
+  }
+
+  .header {
+    margin-bottom: 30px;
+  }
+
+  .header-title h2 {
+    font-size: 28px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .search-box input {
+    padding: 16px 18px 16px 45px;
+    font-size: 14px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .stat-card {
+    padding: 22px;
+  }
+
+  .stat-card h3 {
+    font-size: 32px;
+  }
+
+  .material-card {
+    padding: 20px;
+  }
+
+  .material-card h3 {
+    font-size: 22px;
+  }
+
+  .material-actions {
+    flex-direction: column;
+  }
+
+  .material-actions button {
+    width: 100%;
+  }
+
+  .upload-wrapper {
+    padding: 20px;
+  }
+
+  .upload-wrapper h2 {
+    font-size: 28px;
+  }
+
+  .form-control {
+    padding: 16px;
+    font-size: 14px;
+  }
+
+  .upload-zone {
+    padding: 30px 15px;
+  }
+
+  .upload-zone i {
+    font-size: 50px;
+  }
+
+  .profile-wrapper {
+    padding: 20px;
+  }
+
+  .profile-avatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profile-info h2 {
+    font-size: 28px;
+  }
+
+  .profile-tag {
+    width: 100%;
+    text-align: center;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+}
+
+
+/* =========================================
+   VERY SMALL PHONES
+========================================= */
+
+@media (max-width: 400px) {
+
+  .logo h1 {
+    font-size: 24px;
+  }
+
+  .logo p {
+    font-size: 12px;
+  }
+
+  .sidebar-btn {
+    padding: 15px;
+    font-size: 14px;
+  }
+
+  .header-title h2 {
+    font-size: 24px;
+  }
+
+  .header-title p {
+    font-size: 13px;
+  }
+
+  .material-card h3 {
+    font-size: 20px;
+  }
+
+  .material-info {
+    font-size: 14px;
+  }
+
+  .upload-wrapper h2 {
+    font-size: 24px;
+  }
+
+  .profile-info h2 {
+    font-size: 24px;
+  }
+
+  .stat-card h3 {
+    font-size: 28px;
+  }
+
+}
+
+
+/* =========================================
+   LANDSCAPE MODE
+========================================= */
+
+@media (max-height: 500px) and (orientation: landscape) {
+
+  .sidebar {
+    overflow-y: auto;
+  }
+
+  .profile-top {
+    flex-direction: row;
+  }
+
+}
+
+
+/* =========================================
+   LARGE 4K SCREENS
+========================================= */
+
+@media (min-width: 1800px) {
+
+  .main {
+    max-width: 1800px;
+    margin: auto;
+    padding: 50px;
+  }
+
+  .materials-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+}
+
+
+/* =========================================
+   TOUCH DEVICES
+========================================= */
+
+@media (hover: none) {
+
+  .sidebar-btn:hover {
+    transform: none;
+  }
+
+  .material-card:hover {
+    transform: none;
+  }
+
+  .btn:hover {
+    transform: none;
+  }
+
+}
+
+
+/* =========================================
+   PRINT MODE
+========================================= */
+
+@media print {
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .sidebar,
+  .header-actions,
+  .btn,
+  .mobile-menu-btn {
+    display: none !important;
+  }
+
+  .main {
+    margin: 0;
+    padding: 0;
+  }
+
+  .glass {
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: none;
+  }
+
+}

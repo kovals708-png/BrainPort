@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrainPort — Платформа</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">🧠</div>
+        <div>
+          <h1>BrainPort</h1>
+          <span id="sidebarRoleLabel">Платформа</span>
+        </div>
+      </div>
+      <nav class="nav" id="sidebarNav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-mini">
+          <div class="user-avatar" id="userAvatar">—</div>
+          <div>
+            <div class="name" id="userName">—</div>
+            <div class="role" id="userRole">—</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" style="width:100%" id="logoutBtn">Выйти</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <h2 id="pageTitle">Главная</h2>
+        <div class="topbar-actions">
+          <div class="search-box hidden" id="globalSearchWrap">
+            <span>🔍</span>
+            <input type="search" id="globalSearch" placeholder="Поиск материалов...">
+          </div>
+        </div>
+      </header>
+      <main class="content" id="appContent"></main>
+    </div>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
