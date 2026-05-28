@@ -9,7 +9,9 @@ const TYPE_LABELS = { pdf: 'PDF', ppt: 'PPT', doc: 'DOC' };
 let currentView = 'dashboard';
 let searchQuery = '';
 let filterSubject = '';
+let filterGroup = '';
 let materialsCache = [];
+let groupsCache = [];
 let notificationsCache = [];
 let isLoading = false;
 
@@ -98,6 +100,7 @@ function initSidebar() {
       currentView = btn.dataset.view;
       searchQuery = '';
       filterSubject = '';
+      filterGroup = '';
       const searchInput = document.getElementById('globalSearch');
       if (searchInput) searchInput.value = '';
       render();
@@ -122,11 +125,20 @@ function getMaterials() {
   if (filterSubject) {
     list = list.filter((m) => m.subject === filterSubject);
   }
+  if (filterGroup && session.role === 'teacher') {
+    list = list.filter((m) => m.groupName === filterGroup);
+  }
   return list;
 }
 
 function getSubjects() {
   return [...new Set(materialsCache.map((m) => m.subject))].sort();
+}
+
+function getMaterialGroups() {
+  const fromMaterials = materialsCache.map((m) => m.groupName).filter(Boolean);
+  const fromStudents = groupsCache;
+  return [...new Set([...fromMaterials, ...fromStudents])].sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
 function showToast(message) {
@@ -192,7 +204,7 @@ function renderDashboard() {
     <div class="table-scroll">
       <table class="recent-table">
         <thead>
-          <tr><th>Название</th><th>Предмет</th><th>Автор</th><th>Дата</th></tr>
+          <tr><th>Название</th><th>Предмет</th>${session.role === 'teacher' ? '<th>Группа</th>' : ''}<th>Автор</th><th>Дата</th></tr>
         </thead>
         <tbody>
           ${
@@ -203,12 +215,13 @@ function renderDashboard() {
             <tr>
               <td>${escapeHtml(m.title)}</td>
               <td>${escapeHtml(m.subject)}</td>
+              ${session.role === 'teacher' ? `<td>${escapeHtml(m.groupName || '—')}</td>` : ''}
               <td>${escapeHtml(m.authorName)}</td>
               <td>${m.createdAt}</td>
             </tr>`
                   )
                   .join('')
-              : '<tr><td colspan="4">Пока нет материалов</td></tr>'
+              : `<tr><td colspan="${session.role === 'teacher' ? 5 : 4}">Пока нет материалов</td></tr>`
           }
         </tbody>
       </table>
@@ -223,6 +236,7 @@ function renderMaterialCard(m, options = {}) {
       <span class="type-badge type-${m.type}">${TYPE_LABELS[m.type] || m.type}</span>
       <h3>${escapeHtml(m.title)}</h3>
       <div class="subject">${escapeHtml(m.subject)}</div>
+      ${m.groupName ? `<div class="group-badge">👥 ${escapeHtml(m.groupName)}</div>` : ''}
       <p class="desc">${escapeHtml(m.description)}</p>
       <div class="material-meta">
         <span>👤 ${escapeHtml(m.authorName)}</span>
@@ -241,6 +255,11 @@ function renderMaterialCard(m, options = {}) {
 function renderMaterials() {
   const list = getMaterials();
   const subjects = getSubjects();
+  const groups = getMaterialGroups();
+  const emptyHint =
+    session.role === 'student' && !session.group
+      ? '<p style="margin-top:0.5rem;font-size:0.85rem">Укажите группу в профиле при регистрации, чтобы видеть материалы.</p>'
+      : '';
 
   return `
     <div class="toolbar">
@@ -248,12 +267,21 @@ function renderMaterials() {
         <option value="">Все предметы</option>
         ${subjects.map((s) => `<option value="${escapeHtml(s)}" ${filterSubject === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
       </select>
+      ${
+        session.role === 'teacher'
+          ? `
+      <select id="filterGroup">
+        <option value="">Все группы</option>
+        ${groups.map((g) => `<option value="${escapeHtml(g)}" ${filterGroup === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+      </select>`
+          : ''
+      }
     </div>
     <div class="materials-grid" id="materialsGrid">
       ${
         list.length
           ? list.map((m) => renderMaterialCard(m, { canDelete: currentView === 'mymaterials' })).join('')
-          : `<div class="empty-state"><div class="icon">📭</div><p>Материалы не найдены</p></div>`
+          : `<div class="empty-state"><div class="icon">📭</div><p>Материалы не найдены</p>${emptyHint}</div>`
       }
     </div>
   `;
@@ -261,6 +289,24 @@ function renderMaterials() {
 
 function renderUpload() {
   const subjects = getSubjects();
+  const groups = getMaterialGroups();
+  const groupField = groups.length
+    ? `
+        <div class="form-group">
+          <label for="matGroup">Группа *</label>
+          <select id="matGroup" required>
+            <option value="">Выберите группу</option>
+            ${groups.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('')}
+          </select>
+          <p class="form-hint">Материал увидят только студенты этой группы</p>
+        </div>`
+    : `
+        <div class="form-group">
+          <label for="matGroup">Группа *</label>
+          <input type="text" id="matGroup" required placeholder="Например: ИТ-301">
+          <p class="form-hint">Сначала зарегистрируйте студентов с указанием группы, или введите название вручную</p>
+        </div>`;
+
   return `
     <div class="panel">
       <h3>Новый учебный материал</h3>
@@ -269,6 +315,7 @@ function renderUpload() {
           <label for="matTitle">Название *</label>
           <input type="text" id="matTitle" required maxlength="120">
         </div>
+        ${groupField}
         <div class="form-row">
           <div class="form-group">
             <label for="matSubject">Предмет *</label>
@@ -352,6 +399,9 @@ function escapeHtml(str) {
 
 async function refreshData() {
   materialsCache = await fetchMaterials();
+  if (session.role === 'teacher') {
+    groupsCache = await fetchStudentGroups();
+  }
   if (session.role === 'student') {
     notificationsCache = await fetchNotifications(session.id);
   }
@@ -362,6 +412,15 @@ function bindMaterialsEvents() {
   if (filter) {
     filter.addEventListener('change', (e) => {
       filterSubject = e.target.value;
+      document.getElementById('appContent').innerHTML = renderMaterials();
+      bindMaterialsEvents();
+    });
+  }
+
+  const groupFilter = document.getElementById('filterGroup');
+  if (groupFilter) {
+    groupFilter.addEventListener('change', (e) => {
+      filterGroup = e.target.value;
       document.getElementById('appContent').innerHTML = renderMaterials();
       bindMaterialsEvents();
     });
@@ -435,8 +494,14 @@ function bindUploadForm() {
 
     try {
       const title = document.getElementById('matTitle').value.trim();
+      const groupName = document.getElementById('matGroup').value.trim();
       const subject = document.getElementById('matSubject').value.trim();
       const type = document.getElementById('matType').value;
+
+      if (!groupName) {
+        showToast('Выберите группу для публикации');
+        return;
+      }
       const description = document.getElementById('matDesc').value.trim() || 'Без описания';
       const fileInput = document.getElementById('matFile');
       const file = fileInput.files[0] || null;
@@ -458,13 +523,14 @@ function bindUploadForm() {
           authorId: session.id,
           authorName: session.name,
           createdAt: new Date().toISOString().slice(0, 10),
-          size
+          size,
+          groupName
         },
         file
       );
 
       materialsCache.unshift(created);
-      await notifyStudentsAboutMaterial(title, subject);
+      await notifyStudentsAboutMaterial(title, subject, groupName);
       showToast('Материал опубликован');
       currentView = 'mymaterials';
       await render();

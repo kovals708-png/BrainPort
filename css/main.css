@@ -604,6 +604,18 @@ body.sidebar-open {
   margin-bottom: 0.5rem;
 }
 
+.material-card .group-badge {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.form-hint {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .material-card .desc {
   font-size: 0.85rem;
   color: var(--text-muted);

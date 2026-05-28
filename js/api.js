@@ -55,7 +55,8 @@ function mapMaterial(row) {
     downloads: row.downloads ?? 0,
     size: row.size || '',
     filePath: row.file_path || null,
-    fileName: row.file_name || null
+    fileName: row.file_name || null,
+    groupName: row.group_name || ''
   };
 }
 
@@ -145,6 +146,21 @@ async function fetchMaterials() {
   return (data || []).map(mapMaterial);
 }
 
+async function fetchStudentGroups() {
+  const { data, error } = await getSupabase()
+    .from('profiles')
+    .select('group_name')
+    .eq('role', 'student')
+    .not('group_name', 'is', null);
+  if (error) throw error;
+  const groups = new Set();
+  for (const row of data || []) {
+    const name = (row.group_name || '').trim();
+    if (name) groups.add(name);
+  }
+  return [...groups].sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
 async function insertMaterial(material, file) {
   let filePath = null;
   let fileName = null;
@@ -172,7 +188,8 @@ async function insertMaterial(material, file) {
       downloads: 0,
       size: material.size,
       file_path: filePath,
-      file_name: fileName
+      file_name: fileName,
+      group_name: (material.groupName || '').trim()
     })
     .select()
     .single();
@@ -224,11 +241,15 @@ async function markNotificationRead(id) {
   if (error) throw error;
 }
 
-async function notifyStudentsAboutMaterial(title, subject) {
+async function notifyStudentsAboutMaterial(title, subject, groupName) {
+  const group = (groupName || '').trim();
+  if (!group) return;
+
   const { data: students, error: studentsError } = await getSupabase()
     .from('profiles')
     .select('id')
-    .eq('role', 'student');
+    .eq('role', 'student')
+    .eq('group_name', group);
   if (studentsError) throw studentsError;
   if (!students?.length) return;
 

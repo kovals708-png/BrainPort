@@ -27,7 +27,8 @@ create table if not exists public.materials (
   downloads integer not null default 0,
   size text default '',
   file_path text,
-  file_name text
+  file_name text,
+  group_name text not null default ''
 );
 
 -- Уведомления
@@ -42,6 +43,7 @@ create table if not exists public.notifications (
 
 create index if not exists idx_materials_author on public.materials (author_id);
 create index if not exists idx_materials_subject on public.materials (subject);
+create index if not exists idx_materials_group on public.materials (group_name);
 create index if not exists idx_notifications_user on public.notifications (user_id);
 
 alter table public.profiles enable row level security;
@@ -53,8 +55,22 @@ create policy "profiles_select" on public.profiles for select to authenticated u
 create policy "profiles_insert_own" on public.profiles for insert to authenticated with check (auth.uid() = id);
 create policy "profiles_update_own" on public.profiles for update to authenticated using (auth.uid() = id);
 
--- materials
-create policy "materials_select" on public.materials for select to authenticated using (true);
+-- materials: студенты видят только материалы своей группы, преподаватели — все
+create policy "materials_select" on public.materials for select to authenticated using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+    and (
+      p.role = 'teacher'
+      or (
+        p.role = 'student'
+        and p.group_name is not null
+        and trim(p.group_name) <> ''
+        and trim(p.group_name) = trim(materials.group_name)
+      )
+    )
+  )
+);
 create policy "materials_insert_teacher" on public.materials for insert to authenticated
   with check (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'teacher')
